@@ -10,7 +10,8 @@ import {
 import { router } from "expo-router";
 import { Eye, EyeOff } from "lucide-react-native";
 import { AppButton } from "../components/AppButton.jsx";
-import { colors, radius, spacing } from "../constants/theme";
+import Logo from "../components/logo.jsx";
+import BackgroundWrap from "../components/backgroundWrap.jsx";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -23,161 +24,135 @@ export default function LoginScreen() {
       return;
     }
 
-    router.replace("/(tabs)/products");
+    Alert.alert("Log in Successfully!", "Welcome back.", [
+      {
+        text: "OK",
+        onPress: () => router.replace("/(tabs)/products"),
+      },
+    ]);
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.form}>
-        <View style={styles.logo}>
-          <Text style={styles.logoText}>P</Text>
-        </View>
+    <BackgroundWrap>
+      <View style={styles.container}>
+        <View style={styles.form}>
+          <Logo size={120} />
 
-        <Text style={styles.headerTitle}>
-          Login to Simple POS
-        </Text>
+          <Text style={styles.headerTitle}>Login to Simple POS</Text>
 
-        <Text style={styles.label}>Email</Text>
-
-        <TextInput
-          style={styles.input}
-          placeholder="email@example.com"
-          placeholderTextColor={colors.textMuted}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={email}
-          onChangeText={setEmail}
-        />
-
-        <Text style={styles.label}>Password</Text>
-
-        <View style={styles.passwordContainer}>
+          <Text style={styles.label}>Email</Text>
           <TextInput
-            style={styles.passwordInput}
-            placeholder="Password"
-            placeholderTextColor={colors.textMuted}
-            secureTextEntry={!showPassword}
-            value={password}
-            onChangeText={setPassword}
+            style={styles.input}
+            placeholder="Email@example.com"
+            placeholderTextColor="#ccc"
+            onChangeText={setEmail}
+            value={email}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
           />
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.eyeButton,
-              { opacity: pressed ? 0.5 : 1 },
-            ]}
-            onPress={() => setShowPassword(!showPassword)}
-            hitSlop={10}
-          >
-            {showPassword ? (
-              <Eye
-                color={colors.textSecondary}
-                size={20}
-              />
-            ) : (
-              <EyeOff
-                color={colors.textSecondary}
-                size={20}
-              />
-            )}
-          </Pressable>
-        </View>
+          <Text style={styles.label}>Password</Text>
 
-        <View style={styles.buttonWrapper}>
-          <AppButton
-            title="Log In"
-            onPress={handleLogin}
-          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Password"
+              placeholderTextColor="#ccc"
+              onChangeText={setPassword}
+              value={password}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+            />
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.eyeButton,
+                { opacity: pressed ? 0.5 : 1 },
+              ]}
+              onPress={() => setShowPassword(!showPassword)}
+              hitSlop={10}
+            >
+              {showPassword ? (
+                <EyeOff color="#64748b" size={20} />
+              ) : (
+                <Eye color="#64748b" size={20} />
+              )}
+            </Pressable>
+          </View>
+
+          <View style={styles.buttonWrapper}>
+            <AppButton title="Log In" onPress={handleLogin} />
+          </View>
         </View>
       </View>
-    </View>
+    </BackgroundWrap>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
     justifyContent: "center",
     alignItems: "center",
-    padding: spacing.xl,
+    padding: 20,
   },
 
   form: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    gap: spacing.sm,
+    backgroundColor: "rgba(128, 128, 128, 0.9)",
+    padding: 20,
+    borderRadius: 10,
+    gap: 10,
     width: "100%",
     maxWidth: 320,
   },
 
-  logo: {
-    width: 64,
-    height: 64,
-    borderRadius: radius.xl,
-    backgroundColor: colors.primary,
-    justifyContent: "center",
-    alignItems: "center",
-    alignSelf: "center",
-    marginBottom: spacing.sm,
-  },
-
-  logoText: {
-    color: colors.white,
-    fontSize: 32,
-    fontWeight: "800",
-  },
-
   headerTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: colors.text,
+    fontSize: 25,
+    fontWeight: "bold",
+    color: "white",
     textAlign: "center",
-    marginBottom: spacing.sm,
+    marginBottom: 8,
   },
 
   label: {
-    color: colors.text,
-    fontWeight: "600",
-    fontSize: 14,
+    color: "white",
+    fontWeight: "bold",
   },
 
   input: {
     height: 50,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    color: colors.text,
-    fontSize: 16,
+    borderColor: "white",
+    paddingHorizontal: 10,
+    borderRadius: 5,
+    color: "white",
+    backgroundColor: "rgba(255,255,255,0.05)",
   },
 
   passwordContainer: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
+    borderColor: "white",
+    borderRadius: 5,
+    backgroundColor: "rgba(255,255,255,0.05)",
   },
 
   passwordInput: {
     flex: 1,
     height: 50,
-    paddingHorizontal: spacing.md,
-    color: colors.text,
-    fontSize: 16,
+    paddingHorizontal: 10,
+    color: "white",
   },
 
   eyeButton: {
-    padding: spacing.sm,
+    padding: 10,
     justifyContent: "center",
     alignItems: "center",
   },
 
   buttonWrapper: {
-    marginTop: spacing.sm,
+    marginTop: 10,
   },
 });
