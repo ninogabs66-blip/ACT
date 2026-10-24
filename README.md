@@ -8,6 +8,8 @@ LocalDesk is a custom task dashboard built with **React Native + Expo**, with op
 - Overview dashboard with completion statistics
 - Device-local demo storage using AsyncStorage
 - Optional CRUD against a local Supabase database
+- Storage-conscious queries (only required columns; capped at 500 tasks per load)
+- Automatic cleanup of completed tasks older than 30 days when the app opens or adds a task; unfinished tasks are never automatically deleted
 - JavaScript and JSX; no TypeScript app screens
 
 ## Requirements
@@ -86,7 +88,15 @@ npx expo start --clear
 
 Open the app's **Overview** tab. It should say **Local Supabase connected** when the URL, key, database table, and network access are correct. If the local backend is unavailable, the app uses device-local demo storage.
 
-## 5. Test the app
+## 5. Storage cleanup and limits
+
+The updated `supabase/schema.sql` adds a cleanup function and an index for completed tasks. When LocalDesk opens the connected app or creates a task, it asks PostgreSQL to delete **only completed tasks older than 30 days**. Unfinished tasks are not deleted. Task loading selects only needed columns and is capped at 500 rows to avoid unnecessarily large responses.
+
+After pulling these changes, run the full updated `supabase/schema.sql` in your local Supabase Studio SQL Editor. Cleanup runs when the app connects/opens or a task is added; it is not a background job while the app is closed. The cleanup function does not inspect a Supabase cloud quota or guarantee a database-size reset. Deleting rows does not necessarily immediately reduce PostgreSQL's reported disk allocation. It also does not reset monthly bandwidth/egress or other plan quotas. For this project, self-hosted Supabase uses your own PC storage rather than Supabase Cloud's free-plan storage quota.
+
+This starter's anonymous CRUD policy is intended only for a trusted local development environment. Do not expose it to the public internet.
+
+## 6. Test the app
 
 1. Confirm the dashboard opens.
 2. Add a task and select a category.

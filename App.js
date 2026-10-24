@@ -26,15 +26,33 @@ export default function App() {
   const [tab, setTab] = useState('Tasks');
   const [remote, setRemote] = useState(false);
   const [status, setStatus] = useState('Starting demo mode…');
+  const [cleanupNote, setCleanupNote] = useState('');
 
   useEffect(() => { load(); }, []);
 
   async function load() {
+    setRemote(false);
     if (isSupabaseConfigured) {
-      const { data, error } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
-      if (!error) { setTasks(data || []); setRemote(true); setStatus('Local Supabase connected'); return; }
+      // Remove only completed tasks older than 30 days. Never auto-delete unfinished tasks.
+      const { data: removedCount, error: cleanupError } = await supabase.rpc('cleanup_old_completed_tasks');
+      const { data, error } = await supabase.from('tasks').select('id,title,category,done,created_at').order('created_at', { ascending: false }).limit(500);
+      if (!error) {
+        setTasks(data || []);
+        setRemote(true);
+        setStatus('Local Supabase connected');
+        setCleanupNote(cleanupError
+          ? 'Auto-cleanup is not active yet. Run the updated supabase/schema.sql in Supabase Studio.'
+          : Number(removedCount) > 0
+            ? `Auto-cleanup removed ${removedCount} old completed task(s).`
+            : 'Auto-cleanup checked: completed tasks older than 30 days are eligible for removal.');
+        return;
+      }
       setStatus('Supabase unavailable · device demo mode');
-    } else setStatus('Demo mode · saved on this device');
+      setCleanupNote('Supabase cleanup runs only when the app can reach your local database.');
+    } else {
+      setStatus('Demo mode · saved on this device');
+      setCleanupNote('Local demo mode: tasks stay on this device; no Supabase quota is used.');
+    }
     try {
       const saved = await AsyncStorage.getItem('localdesk.tasks');
       if (saved) setTasks(JSON.parse(saved));
@@ -52,7 +70,9 @@ export default function App() {
     if (!title) return Alert.alert('Task needs a name', 'Type a task first.');
     const row = { title, category, done: false };
     if (remote) {
-      const { data, error } = await supabase.from('tasks').insert(row).select().single();
+      // A second cleanup pass before writing helps keep old completed rows from accumulating.
+      await supabase.rpc('cleanup_old_completed_tasks');
+      const { data, error } = await supabase.from('tasks').insert(row).select('id,title,category,done,created_at').single();
       if (error) return Alert.alert('Could not save task', error.message);
       setTasks(old => [data, ...old]);
     } else await saveLocal([{ ...row, id: 'local-' + Date.now(), created_at: new Date().toISOString() }, ...tasks]);
@@ -135,7 +155,7 @@ export default function App() {
         </> : <View style={{ marginTop: 12, gap: 12 }}>
           <View style={{ backgroundColor: C.panel, borderRadius: 18, padding: 18 }}><Text style={{ color: C.muted }}>TOTAL TASKS</Text><Text style={{ color: C.text, fontSize: 30, fontWeight: '900', marginTop: 6 }}>{tasks.length}</Text></View>
           <View style={{ backgroundColor: C.panel, borderRadius: 18, padding: 18 }}><Text style={{ color: C.muted }}>COMPLETION RATE</Text><Text style={{ color: C.lime, fontSize: 30, fontWeight: '900', marginTop: 6 }}>{tasks.length ? Math.round(completed / tasks.length * 100) : 0}%</Text><View style={{ height: 7, backgroundColor: '#343B4B', borderRadius: 10, marginTop: 12, overflow: 'hidden' }}><View style={{ height: 7, width: (tasks.length ? completed / tasks.length * 100 : 0) + '%', backgroundColor: C.lime }} /></View></View>
-          <View style={{ backgroundColor: C.panel, borderRadius: 18, padding: 18 }}><Text style={{ color: C.muted }}>DATA MODE</Text><Text style={{ color: C.text, fontSize: 16, fontWeight: '800', marginTop: 6 }}>{status}</Text><Text style={{ color: C.muted, marginTop: 6, lineHeight: 19 }}>Demo mode needs no account. Configure local Supabase to store tasks in PostgreSQL on your PC.</Text><Button title="Reload workspace" secondary onPress={load} /></View>
+          <View style={{ backgroundColor: C.panel, borderRadius: 18, padding: 18 }}><Text style={{ color: C.muted }}>DATA MODE</Text><Text style={{ color: C.text, fontSize: 16, fontWeight: '800', marginTop: 6 }}>{status}</Text><Text style={{ color: C.muted, marginTop: 6, lineHeight: 19 }}>Demo mode needs no account. Configure local Supabase to store tasks in PostgreSQL on your PC.</Text><Text style={{ color: C.lime, marginTop: 10, lineHeight: 18, fontSize: 12 }}>{cleanupNote}</Text><Button title="Reload workspace" secondary onPress={load} /></View>
         </View>}
         <Text style={{ color: '#667084', textAlign: 'center', marginTop: 25, fontSize: 11 }}>LOCALDESK · BUILT FOR YOUR OWN LITTLE CORNER OF THE INTERNET</Text>
       </ScrollView>

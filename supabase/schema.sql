@@ -23,3 +23,31 @@ create policy "local demo delete tasks" on public.tasks for delete to anon using
 grant usage on schema public to anon;
 grant select, insert, update, delete on public.tasks to anon;
 grant usage, select on sequence public.tasks_id_seq to anon;
+
+
+-- Storage hygiene: remove only completed tasks older than 30 days.
+-- Incomplete tasks are never removed by this function.
+create index if not exists tasks_completed_created_at_idx
+  on public.tasks (created_at)
+  where done = true;
+
+create or replace function public.cleanup_old_completed_tasks()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  removed_count integer;
+begin
+  delete from public.tasks
+  where done = true
+    and created_at < now() - interval '30 days';
+
+  get diagnostics removed_count = row_count;
+  return removed_count;
+end;
+$$;
+
+revoke all on function public.cleanup_old_completed_tasks() from public;
+grant execute on function public.cleanup_old_completed_tasks() to anon;
