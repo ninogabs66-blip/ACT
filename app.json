@@ -1,21 +1,11 @@
 {
   "expo": {
-    "name": "Simple POS",
-    "slug": "simple-pos",
+    "name": "LocalDesk",
+    "slug": "localdesk",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "scheme": "simplepos",
-    "plugins": [
-      "expo-router",
-      "expo-status-bar"
-    ],
-    "ios": {
-      "supportsTablet": true
-    },
-    "android": {
-      "edgeToEdgeEnabled": true
-    }
+    "userInterfaceStyle": "dark",
+    "android": { "package": "com.localdesk.app" },
+    "ios": { "supportsTablet": true }
   }
 }
