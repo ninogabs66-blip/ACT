@@ -1,26 +1,16 @@
 # LocalDesk — Local-First React Native App
 
-LocalDesk is a custom task dashboard built with **React Native + Expo**, with optional **self-hosted Supabase and PostgreSQL** running on your own Windows PC. It starts in demo mode, so no account or cloud project is required.
+LocalDesk is a React Native + Expo task dashboard. It can save tasks on-device with AsyncStorage. An optional self-hosted Supabase/PostgreSQL backend is included as a development path.
 
 ## Features
 - Create, complete, delete, search, and filter tasks
 - Categories: Study, Work, Personal, Life
 - Overview dashboard with completion statistics
-- Device-local demo storage using AsyncStorage
-- Optional CRUD against a local Supabase database
-- Storage-conscious queries (only required columns; capped at 500 tasks per load)
-- Automatic cleanup of completed tasks older than 30 days when the app opens or adds a task; unfinished tasks are never automatically deleted
-- JavaScript and JSX; no TypeScript app screens
+- Device-local storage using AsyncStorage
+- Optional Supabase integration scaffold
+- JavaScript and JSX app screens
 
-## Requirements
-- Windows 10/11
-- Node.js LTS (Node 20 or 22 recommended)
-- Docker Desktop with WSL 2 enabled (only needed for local Supabase)
-- Expo Go on Android, or Android Studio emulator
-
-## 1. Run demo mode first
-
-Open PowerShell in the project folder:
+## Run the device-local app
 
 ```powershell
 npm install
@@ -28,93 +18,67 @@ Copy-Item .env.example .env
 npx expo start
 ```
 
-- **Android emulator:** press `a` in the Expo terminal.
-- **Physical Android phone:** install Expo Go, connect phone and PC to the same Wi-Fi, then scan the QR code.
-- Demo tasks are saved on that device. You do not need an account.
+Demo mode stores tasks on the current device. No account or remote database is required.
 
-## 2. Start self-hosted Supabase on Windows
+## Backend status: locked down by default
 
-Use the official maintained Docker setup, which includes the API gateway, PostgreSQL, Studio, and supporting services.
+The SQL schema now **denies anonymous database access** and enables row-level security (RLS) policies that allow authenticated users to access only rows whose `user_id` matches their Supabase Auth user ID. The cleanup function is also scoped to the signed-in user's rows and is not executable by anonymous users.
 
-In a separate PowerShell window:
+**Important:** the current app UI does not yet include a sign-in/sign-up flow or pass an authenticated session. Therefore remote Supabase CRUD will not work with this secure schema until Supabase Auth is implemented in the app. The app should remain in device-local demo mode meanwhile. This is intentional: do not restore anonymous CRUD just to make the demo connect.
 
-```powershell
-cd $HOME
-git clone --depth 1 https://github.com/supabase/supabase
-cd supabase/docker
-Copy-Item .env.example .env
-```
+## Self-hosted Supabase
 
-Start Docker Desktop. Review the generated `.env` and set strong local passwords/secrets as described by the official guide. Then:
+Use the official Docker deployment guide: https://supabase.com/docs/guides/self-hosting/docker
 
-```powershell
-docker compose pull
-docker compose up -d
-docker compose ps
-```
+Keep Supabase Studio and database/admin ports private. Bind services to localhost or a trusted private network when possible, use a host firewall, and do not port-forward Supabase/Postgres/Studio to the internet. Set strong unique passwords and secrets in the Docker environment file. Do not commit that file.
 
-Official instructions and current required environment variables:
-https://supabase.com/docs/guides/self-hosting/docker
+Check the actual port mappings in your chosen Supabase Docker configuration; ports can vary by version.
 
-**Ports vary by Supabase compose version.** Check the compose file and `.env` for the actual API and Studio port mappings rather than assuming defaults.
+## Configure the app
 
-## 3. Create the tasks table
+The client reads:
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 
-Open local Supabase Studio, then open **SQL Editor** and run all SQL in `supabase/schema.sql`.
+These are client-visible configuration values, not secrets. Never put the Supabase `service_role` key, database password, JWT secret, or other admin credentials in an Expo app or any `EXPO_PUBLIC_*` variable. A public anon/publishable key is safe to ship only when database grants and RLS policies are correctly restrictive.
 
-This starter SQL enables anonymous demo CRUD for a trusted local development environment. Do not expose this setup to the public internet or store sensitive data in it.
+Example local URLs (adjust for your actual port mappings):
+- Android emulator: `http://10.0.2.2:8000`
+- Physical phone on same Wi-Fi: `http://YOUR_PC_LAN_IP:8000`
+- Web on the same PC: `http://localhost:8000`
 
-## 4. Connect LocalDesk to local Supabase
+Do not expose plain HTTP services over an untrusted network. For a deployed service, use HTTPS and an appropriately secured reverse proxy.
 
-Edit this project's `.env`:
+## Apply the secure schema
 
-- Android Studio emulator: `EXPO_PUBLIC_SUPABASE_URL=http://10.0.2.2:8000`
-- Physical phone: `EXPO_PUBLIC_SUPABASE_URL=http://YOUR_PC_LAN_IP:8000`
-- Expo web on the same PC: `EXPO_PUBLIC_SUPABASE_URL=http://localhost:8000`
+1. Back up any data you need before changing the database.
+2. Open your local Supabase Studio SQL Editor.
+3. Run `supabase/schema.sql`.
+4. Verify that the `anon` role cannot select, insert, update, or delete rows.
+5. Verify that a signed-in user can access only their own rows.
+6. Add Supabase Auth to the app before enabling remote CRUD.
 
-Use the matching local `ANON_KEY` from your Supabase Docker `.env` as `EXPO_PUBLIC_SUPABASE_ANON_KEY`. **Never put `SERVICE_ROLE_KEY` in the app.**
+Existing rows from the old anonymous demo have no `user_id`. The migration does not assign those rows to anyone; they will be inaccessible under the new policies. Review/export any data you need before migration.
 
-Find your PC's local IP with:
+## Security checklist before any public deployment
 
-```powershell
-ipconfig
-```
+- [ ] Implement sign-up, sign-in, sign-out, session persistence, and session expiry handling.
+- [ ] Set `user_id` from the authenticated session; never trust a client-supplied owner ID.
+- [ ] Keep RLS enabled and test cross-user read/update/delete attempts.
+- [ ] Never ship service-role keys or database credentials in the app.
+- [ ] Do not expose PostgreSQL, Studio, or admin endpoints publicly.
+- [ ] Use HTTPS, firewall rules, backups, dependency updates, and monitoring.
+- [ ] Validate input and enforce limits on the server/database.
+- [ ] Add server-side rate limits where appropriate.
+- [ ] If payments are ever added, verify payment events server-side and never trust client success messages.
+- [ ] Run security tests and review logs before release.
 
-After changing `.env`, restart Expo:
+No setup can guarantee that an app is impossible to hack. These changes reduce exposure, but the app is **not release-ready** until authentication is implemented and the checks above are tested.
 
-```powershell
-npx expo start --clear
-```
+## Current app tests
 
-Open the app's **Overview** tab. It should say **Local Supabase connected** when the URL, key, database table, and network access are correct. If the local backend is unavailable, the app uses device-local demo storage.
-
-## 5. Storage cleanup and limits
-
-The updated `supabase/schema.sql` adds a cleanup function and an index for completed tasks. When LocalDesk opens the connected app or creates a task, it asks PostgreSQL to delete **only completed tasks older than 30 days**. Unfinished tasks are not deleted. Task loading selects only needed columns and is capped at 500 rows to avoid unnecessarily large responses.
-
-After pulling these changes, run the full updated `supabase/schema.sql` in your local Supabase Studio SQL Editor. Cleanup runs when the app connects/opens or a task is added; it is not a background job while the app is closed. The cleanup function does not inspect a Supabase cloud quota or guarantee a database-size reset. Deleting rows does not necessarily immediately reduce PostgreSQL's reported disk allocation. It also does not reset monthly bandwidth/egress or other plan quotas. For this project, self-hosted Supabase uses your own PC storage rather than Supabase Cloud's free-plan storage quota.
-
-This starter's anonymous CRUD policy is intended only for a trusted local development environment. Do not expose it to the public internet.
-
-## 6. Test the app
-
-1. Confirm the dashboard opens.
-2. Add a task and select a category.
-3. Mark the task complete; confirm the statistics update.
-4. Search and filter tasks.
-5. Delete a task.
-6. Restart Expo and confirm device-local demo tasks persist.
-7. Start local Supabase and configure `.env`.
-8. Add a task and verify it appears in the `public.tasks` table in Studio.
-
-## Troubleshooting
-
-- **Phone cannot reach API:** use the PC's LAN IPv4 address, not `localhost`; both devices must be on the same Wi-Fi.
-- **Android emulator cannot reach API:** use `10.0.2.2` for services hosted on the PC.
-- **Connection refused:** confirm Docker is running and `docker compose ps` shows services up; verify the API port mapping.
-- **Table missing:** run `supabase/schema.sql` in Studio's SQL Editor.
-- **Expo uses old settings:** stop Expo and restart with `npx expo start --clear`.
-
-## Security note
-
-The provided SQL policy intentionally allows unauthenticated CRUD for a local demo. This is not production security. For multiple users or any network-exposed deployment, implement Supabase Auth and restrictive row-level security policies before use.
+1. Open the dashboard.
+2. Create, complete, search, filter, and delete local tasks.
+3. Restart the app and confirm local tasks persist.
+4. After adding Auth, test that user A cannot read, modify, or delete user B's tasks.
+5. Test anonymous requests to the REST API and confirm they are denied.
